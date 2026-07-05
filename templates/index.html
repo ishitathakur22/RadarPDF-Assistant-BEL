@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Q&A System - BEL</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="header">
+    <div class="header-icon">&#128196;</div>
+    <div class="header-text">
+        <h1>PDF Q&A System</h1>
+        <p>Bharat Electronics Limited (BEL) - Radar Department | Intelligent Document Search</p>
+    </div>
+</div>
+
+<div class="main">
+
+    <div class="sidebar">
+        <div class="sidebar-section">
+            <h3>Search PDF</h3>
+            <div class="search-row">
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Enter PDF name..."
+                    onkeydown="if(event.key==='Enter') searchPDFs()"
+                />
+                <button class="btn btn-primary" onclick="searchPDFs()">Search</button>
+            </div>
+            <div id="searchMsg"></div>
+            <div class="pdf-results" id="pdfList"></div>
+            <button
+                class="btn btn-load"
+                id="loadBtn"
+                onclick="loadPDFs()"
+                disabled
+            >Load Selected PDFs</button>
+            <div id="loadMsg"></div>
+        </div>
+    </div>
+
+    <div class="chat-area">
+        <div class="chat-messages" id="chatMessages">
+            <div class="welcome" id="welcomeScreen">
+                <h2>PDF Q&A System</h2>
+                <p>Search and load PDFs from the sidebar to begin asking questions about your documents.</p>
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <div id="lockedMsg" class="locked-overlay">
+                Load PDFs from the sidebar to start asking questions.
+            </div>
+            <div id="inputSection" style="display:none;">
+                <div class="input-row">
+                    <textarea
+                        id="questionInput"
+                        placeholder="Ask a question about your documents..."
+                        rows="1"
+                        onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); askQuestion(); }"
+                        oninput="autoResize(this)"
+                    ></textarea>
+                    <div class="input-actions">
+                        <button class="icon-btn voice" id="voiceBtn" onclick="recordVoice()" title="Voice input">&#127897;</button>
+                        <button class="icon-btn stop" id="stopBtn" onclick="stopGeneration()" title="Stop" style="display:none;">&#9632;</button>
+                        <button class="icon-btn send" id="sendBtn" onclick="askQuestion()" title="Send">&#9658;</button>
+                    </div>
+                </div>
+                <div class="input-hint">Press Enter to send - Shift+Enter for new line - Click mic for voice</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/script.js"></script>
+</body>
+</html>

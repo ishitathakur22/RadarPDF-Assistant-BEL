@@ -1,0 +1,14 @@
+{
+  "./sample_pdfs\\scanned": {
+    "pdf_names": [
+      "PublicWaterMassMailing"
+    ]
+  },
+  "./sample_pdfs\\programming": {
+    "pdf_names": [
+      "cpp programming tutorial",
+      "java  programming test",
+      "python programming test"
+    ]
+  }
+}

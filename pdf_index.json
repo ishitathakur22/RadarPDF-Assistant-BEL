@@ -1,0 +1,26 @@
+[
+  {
+    "name": "cpp_programming_tutorial.pdf",
+    "path": "./sample_pdfs\\programming\\cpp_programming_tutorial.pdf",
+    "folder": "./sample_pdfs\\programming",
+    "size": 1917005
+  },
+  {
+    "name": "java__programming_test.pdf",
+    "path": "./sample_pdfs\\programming\\java__programming_test.pdf",
+    "folder": "./sample_pdfs\\programming",
+    "size": 5248322
+  },
+  {
+    "name": "python_programming_test.pdf",
+    "path": "./sample_pdfs\\programming\\python_programming_test.pdf",
+    "folder": "./sample_pdfs\\programming",
+    "size": 3682006
+  },
+  {
+    "name": "PublicWaterMassMailing.pdf",
+    "path": "./sample_pdfs\\scanned\\PublicWaterMassMailing.pdf",
+    "folder": "./sample_pdfs\\scanned",
+    "size": 2681358
+  }
+]
