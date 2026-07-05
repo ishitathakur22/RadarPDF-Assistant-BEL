@@ -135,11 +135,5 @@ Open browser: `http://localhost:5000`
 B.Tech CSE — 2nd Year | MSIT New Delhi
 BEL Machine Learning Intern | Radar Department | 2026
 
-
----
-
-**Step 6** — Neeche **"Commit changes"** click karo → **"Commit directly to main"** → **"Commit changes"**
-
----
-
-Screenshot bhejo! 🔥😄
+[![GitHub](https://img.shields.io/badge/GitHub-ishitathakur22-black)](https://github.com/ishitathakur22)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Ishita_Thakur-blue)](https://www.linkedin.com/in/ishita-thakur-857743322/)
