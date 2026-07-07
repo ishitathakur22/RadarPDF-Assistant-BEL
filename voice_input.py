@@ -74,7 +74,7 @@ def transcribe_audio(audio_file):
     return text
 
 
-def get_voice_query(duration=25):
+def get_voice_query(duration=20):
     """
     Complete voice input pipeline.
 
@@ -101,6 +101,6 @@ if __name__ == "__main__":
     print("Voice Input Test")
     print("=" * 40)
 
-    text = get_voice_query(duration=25)
+    text = get_voice_query(duration=20)
 
     print(f"\nTranscribed text: {text}")

@@ -36,3 +36,12 @@ echo "To run the project:"
 echo "  source pdf_qa/bin/activate"
 echo "  ollama serve &"
 echo "  python3 main.py"
+
+# Download model for offline use
+python3 -c "
+import os
+os.environ['TRANSFORMERS_OFFLINE'] = '0'
+from sentence_transformers import SentenceTransformer
+SentenceTransformer('all-MiniLM-L6-v2')
+print('Model downloaded!')
+"

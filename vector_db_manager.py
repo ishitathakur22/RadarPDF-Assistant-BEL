@@ -1,8 +1,12 @@
+import os
+os.environ["HF_HUB_OFFLINE"] = "1"
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+os.environ["HF_DATASETS_OFFLINE"] = "1"
+
 import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import json
-import os
 
 
 # -------------------------------
