@@ -1,4 +1,3 @@
-```markdown
 # RadarPDF-Assistant-BEL 📄
 
 **BEL Internship 2026 — Radar Department | Bharat Electronics Limited**
@@ -156,4 +155,3 @@ BEL Machine Learning Intern | Radar Department | 2026
 
 [![GitHub](https://img.shields.io/badge/GitHub-ishitathakur22-black)](https://github.com/ishitathakur22)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Ishita_Thakur-blue)](https://www.linkedin.com/in/ishita-thakur-857743322/)
-```
