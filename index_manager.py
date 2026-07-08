@@ -43,6 +43,8 @@ def load_index():
 
 
 def build_index(root_path):
+
+
     """
     Scan all PDFs and build FAISS index.
     Save to disk for future use.
@@ -95,3 +97,80 @@ def build_index(root_path):
     save_index(index, all_chunks)
 
     return index, all_chunks
+
+def sync_index(root_path):
+    """
+    Detect new PDFs (not already indexed) and add ONLY those to the index.
+    Much faster than full rebuild — reuses existing embeddings.
+    Returns: (index, chunks, num_new_pdfs)
+    """
+    # Load existing index if present, otherwise start fresh
+    if index_exists():
+        index, chunks = load_index()
+        already_indexed_paths = set(c.get("pdf_path") for c in chunks if "pdf_path" in c)
+    else:
+        index = None
+        chunks = []
+        already_indexed_paths = set()
+
+    print(f"Scanning folder: {root_path}")
+    pdf_index = scan_folders(root_path)
+
+    # Find PDFs that are NOT yet indexed
+    new_pdfs = [pdf for pdf in pdf_index if pdf["path"] not in already_indexed_paths]
+
+    if not new_pdfs:
+        print("No new PDFs found. Index is already up to date.")
+        return index, chunks, 0
+
+    print(f"Found {len(new_pdfs)} new PDF(s) to index.")
+
+    new_chunks = []
+
+    for pdf in new_pdfs:
+        print(f"Processing new PDF: {pdf['name']}...")
+        try:
+            if is_scanned_pdf(pdf["path"]):
+                pages = extract_text_from_scanned_pdf(pdf["path"])
+            else:
+                pages = extract_pdf_pages(pdf["path"])
+
+            pdf_chunks = create_chunks(pages)
+
+            for chunk in pdf_chunks:
+                chunk["pdf_name"] = pdf["name"]
+                chunk["pdf_path"] = pdf["path"]
+                chunk["folder"] = pdf["folder"]
+
+            new_chunks.extend(pdf_chunks)
+            print(f"  {len(pdf_chunks)} chunks created.")
+
+        except Exception as e:
+            print(f"  Error processing {pdf['name']}: {e}")
+            continue
+
+    if not new_chunks:
+        print("No chunks generated from new PDFs.")
+        return index, chunks, 0
+
+    # Embed ONLY the new chunks
+    print("Creating embeddings for new chunks...")
+    texts = [c.get("text_content", c.get("text", "")) for c in new_chunks]
+    new_embeddings = embedder.encode(texts, show_progress_bar=True)
+    new_embeddings = np.array(new_embeddings).astype("float32")
+
+    if index is None:
+        # No existing index — create a fresh one
+        dimension = new_embeddings.shape[1]
+        index = faiss.IndexFlatL2(dimension)
+
+    # Add new vectors to the existing index (no rebuild needed!)
+    index.add(new_embeddings)
+    chunks.extend(new_chunks)
+
+    print(f"Index updated. Total vectors now: {index.ntotal}")
+
+    # Save updated index + chunks
+    save_index(index, chunks)
+
+    return index, chunks, len(new_pdfs)

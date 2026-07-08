@@ -50,6 +50,23 @@ def load_index(save_path="pdf_index.json"):
             return json.load(f)
     return []
 
+def get_folder_signature(root_path):
+    """
+    Returns a signature representing current state of all PDFs in the folder.
+    Changes whenever a file is added/removed/modified.
+    """
+    signature = []
+    for dirpath, _, filenames in os.walk(root_path):
+        for f in filenames:
+            if f.lower().endswith(".pdf"):
+                full_path = os.path.join(dirpath, f)
+                try:
+                    mtime = os.path.getmtime(full_path)
+                    signature.append((full_path, mtime))
+                except OSError:
+                    continue
+    return frozenset(signature)
+
 #TEST
 
 if __name__ == "__main__":

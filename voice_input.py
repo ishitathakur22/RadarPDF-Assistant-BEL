@@ -1,3 +1,5 @@
+import sounddevice as sd
+print(sd.query_devices()) 
 import whisper
 import sounddevice as sd
 import numpy as np
@@ -21,20 +23,19 @@ def record_audio(duration=5, sample_rate=16000):
     Returns:
         tuple: Recorded audio and sample rate.
     """
-    print(f"\nRecording for {duration} seconds...")
-    print("Speak now...")
-
+    print(f"Recording for {duration} seconds...")
+    print(f"Available devices: {sd.query_devices()}")
+    
     audio = sd.rec(
         int(duration * sample_rate),
         samplerate=sample_rate,
         channels=1,
-        dtype="float32"
+        dtype="float32",
+        device=None 
     )
-
-    # Wait until recording is complete
     sd.wait()
-    print("Recording completed.")
-
+    print(f"Recording complete. Audio shape: {audio.shape}")
+    print(f"Audio max value: {audio.max()}") 
     return audio, sample_rate
 
 

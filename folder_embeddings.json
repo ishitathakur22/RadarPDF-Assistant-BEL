@@ -1,14 +1,18 @@
 {
+  "./sample_pdfs\\programming": {
+    "pdf_names": [
+      "5 Electrical Circuits",
+      "cpp programming tutorial",
+      "java  programming test",
+      "MACHINE LEARNING(R17A0534)",
+      "python programming test",
+      "Radar Systems",
+      "TheoryOfComputation"
+    ]
+  },
   "./sample_pdfs\\scanned": {
     "pdf_names": [
       "PublicWaterMassMailing"
-    ]
-  },
-  "./sample_pdfs\\programming": {
-    "pdf_names": [
-      "cpp programming tutorial",
-      "java  programming test",
-      "python programming test"
     ]
   }
 }
