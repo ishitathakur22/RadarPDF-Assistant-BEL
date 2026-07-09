@@ -2,7 +2,7 @@
 
 **BEL Internship 2026 — Radar Department | Bharat Electronics Limited**
 
-An intelligent, fully offline PDF Search and Q&A System built for Bharat Electronics Limited (BEL). The system enables users to search through large collections of PDFs stored across nested folder structures, ask natural language questions in text or voice, and receive accurate, context-aware answers — all without internet connectivity.
+An intelligent, fully offline PDF Search and Q&A System developed for deployment on Linux systems at Bharat Electronics Limited (BEL). The system enables users to search through large collections of PDFs stored across nested folder structures, ask natural language questions in text or voice, and receive accurate, context-aware answers — all without internet connectivity.
 
 ---
 
@@ -13,7 +13,7 @@ User Input (Text / Voice)
         ↓
 File Indexer → Scans all folders & subfolders
         ↓
-PDF Selector → Select one or more PDFs
+Auto-Sync → Detects new/removed PDFs automatically (background watcher)
         ↓
 RAG Pipeline
 ├── PDF Parser (PyMuPDF / Tesseract OCR / ColPali)
@@ -37,6 +37,9 @@ Smart Folder Suggestion (if answer not found)
 - 🧠 Context-aware follow-ups — understands references like "explain more about them"
 - 📄 Scanned PDF support — Tesseract OCR (CPU) / ColPali (GPU)
 - 📁 Smart folder suggestions when an answer isn't found in the current selection
+- 📂 Source attribution — every answer shows the exact PDF, folder, and page number it was drawn from
+- ♻️ Automatic re-indexing — new PDFs added to the folder are detected and indexed in the background, no manual rebuild needed
+- ✏️ Edit, retry, and remove options on any question — refine or resend a query without retyping it from scratch
 - 🔌 Fully offline — no internet required after initial setup
 - 🖥️ Streamlit-based interactive web interface
 - 🌐 Cross-platform — developed on Windows, deployed on Linux (BEL)
@@ -64,11 +67,10 @@ Smart Folder Suggestion (if answer not found)
 ```
 PDF_QA_System/
 ├── streamlit_app.py        # Main Streamlit web application
-├── main.py                 # Terminal-based pipeline
 ├── file_indexer.py          # Folder scanning and PDF indexing
 ├── pdf_processor.py         # Text-based PDF extraction
 ├── vector_db_manager.py     # FAISS vector store + embeddings
-├── index_manager.py         # Index build/save/load logic
+├── index_manager.py         # Index build/sync/save/load logic
 ├── ollama_connector.py       # LLM answer generation
 ├── ocr_processor.py          # Tesseract OCR (CPU)
 ├── colpali_processor.py      # ColPali visual model (GPU)
@@ -78,11 +80,8 @@ PDF_QA_System/
 ├── chat_history.py            # SQLite-based chat history
 ├── chat_history.db            # Chat history database
 ├── install.sh                 # Linux auto-installer
-├── run.bat                    # Windows run script
-├── demo_notebook.ipynb         # Jupyter demo
+├── Start_PDF_App.vbs          # Windows silent background launcher
 ├── requirements.txt
-├── static/
-├── templates/
 └── sample_pdfs/
     ├── programming/
     └── scanned/
@@ -117,25 +116,25 @@ chmod +x install.sh
 ```bash
 # Windows
 conda activate pdf_qa
-python -m streamlit run streamlit_app.py
+python -m streamlit run streamlit_app.py --server.fileWatcherType none
 
 # Linux
 source pdf_qa/bin/activate
-python3 -m streamlit run streamlit_app.py
+python3 -m streamlit run streamlit_app.py --server.fileWatcherType none
 ```
 
 Open browser: `http://localhost:8501`
 
-### Terminal-based (optional)
-```bash
-python main.py
-```
+> **Note:** `--server.fileWatcherType none` is required — without it, Streamlit's automatic file watcher can interrupt an in-progress answer whenever the chat history database is written to.
+
+### Windows — Silent Background Launch
+Double-click `Start_PDF_App.vbs` (or its desktop shortcut) to start the app in the background with no visible terminal window, and automatically open it in the browser after a short delay.
 
 ---
 
 ## Offline Mode
 
-Once the embedding model is downloaded once (with internet), the system runs **fully offline**. This is handled via environment flags set at the top of `streamlit_app.py` and `vector_db_manager.py`:
+Once the embedding model is downloaded once (with internet), the system runs **fully offline**. This is handled via environment flags set at the top of `streamlit_app.py`:
 
 ```python
 os.environ["HF_HUB_OFFLINE"] = "1"
@@ -143,7 +142,15 @@ os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ["HF_DATASETS_OFFLINE"] = "1"
 ```
 
-Ensure `ollama serve` is running locally before starting the app.
+Ollama runs as a background service on Windows automatically. On Linux, ensure `ollama serve` is running before starting the app.
+
+---
+
+## Adding New Documents
+
+Simply drop new PDFs into the `sample_pdfs/` folder (or any subfolder) while the app is running. A background watcher checks for changes every 15 seconds and indexes new documents automatically — no manual rebuild required. A "Rebuild Index" button is also available in the sidebar as a manual fallback.
+
+> **Note:** Large PDFs (100+ pages) can take several minutes to index on CPU-only systems, since each page must be chunked and embedded. Keep the app open and avoid asking questions until indexing completes (a toast notification confirms when it's done).
 
 ---
 
