@@ -84,6 +84,29 @@ st.markdown("""
         border-color: rgba(250, 250, 250, 0.5) !important;
         background-color: rgb(48, 49, 58) !important;
     }
+    /* Compact 3-dot menu trigger button */
+    div[data-testid="stPopover"] > div > button {
+        padding: 2px 10px !important;
+        min-height: 26px !important;
+        font-size: 14px !important;
+        border-radius: 6px !important;
+        line-height: 1 !important;
+    }
+
+    /* Compact popover panel */
+    div[data-testid="stPopoverBody"] {
+        padding: 8px !important;
+        min-width: 120px !important;
+        width: auto !important;
+    }
+
+    /* Compact buttons inside the popover */
+    div[data-testid="stPopoverBody"] button {
+        padding: 4px 10px !important;
+        min-height: 30px !important;
+        font-size: 13px !important;
+        margin-bottom: 4px !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -104,6 +127,7 @@ defaults = {
     "folder_signature": None,
     "voice_query": None,
     "retry_prompt": None,
+    "editing_index": None,
 }
 for key, value in defaults.items():
     if key not in st.session_state:
@@ -254,15 +278,49 @@ st.divider()
 
 for i, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
-        st.markdown(message["content"])
 
-        # Show retry button only for failed assistant answers
-        if message["role"] == "assistant" and "Answer not found" in message["content"]:
-            if st.button("🔄 Retry", key=f"retry_{i}"):
-                # Find the user question right before this failed answer
-                if i > 0 and st.session_state.messages[i - 1]["role"] == "user":
-                    st.session_state.retry_prompt = st.session_state.messages[i - 1]["content"]
+        if message["role"] == "user" and st.session_state.editing_index == i:
+            edited_text = st.text_input("Edit your question:", value=message["content"], key=f"edit_input_{i}")
+            col_save, col_cancel = st.columns([1, 1])
+            with col_save:
+                if st.button("✅ Save & Resend", key=f"save_edit_{i}"):
+                    st.session_state.messages = st.session_state.messages[:i]
+                    st.session_state.retry_prompt = edited_text
+                    st.session_state.editing_index = None
                     st.rerun()
+            with col_cancel:
+                if st.button("Cancel", key=f"cancel_edit_{i}"):
+                    st.session_state.editing_index = None
+                    st.rerun()
+
+        else:
+            is_user = message["role"] == "user"
+            is_failed = message["role"] == "assistant" and "Answer not found" in message["content"]
+
+            msg_col, menu_col = st.columns([20, 1],)
+
+            with msg_col:
+                st.markdown(message["content"])
+
+            with menu_col:
+                if is_user or is_failed:
+                    with st.popover("⋮"):
+                        if is_user:
+                            if st.button("Edit", key=f"edit_{i}", use_container_width=True):
+                                st.session_state.editing_index = i
+                                st.rerun()
+                        if is_failed:
+                            if st.button("Retry", key=f"retry_{i}", use_container_width=True):
+                                if i > 0 and st.session_state.messages[i - 1]["role"] == "user":
+                                    st.session_state.retry_prompt = st.session_state.messages[i - 1]["content"]
+                                    st.session_state.messages = st.session_state.messages[:i - 1]
+                                    st.rerun()
+                            if st.button("Remove", key=f"remove_{i}", use_container_width=True):
+                                if i > 0 and st.session_state.messages[i - 1]["role"] == "user":
+                                    st.session_state.messages = st.session_state.messages[:i - 1] + st.session_state.messages[i + 1:]
+                                else:
+                                    st.session_state.messages = st.session_state.messages[:i] + st.session_state.messages[i + 1:]
+                                st.rerun()
 
 prompt = None
 
