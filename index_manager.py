@@ -100,11 +100,11 @@ def build_index(root_path):
 
 def sync_index(root_path):
     """
-    Detect new PDFs (not already indexed) and add ONLY those to the index.
-    Much faster than full rebuild — reuses existing embeddings.
-    Returns: (index, chunks, num_new_pdfs)
+    Detect new PDFs and add them. Also detect DELETED PDFs and remove
+    their chunks from the index. Rebuilds the FAISS index only if
+    something actually changed (deletions require a rebuild since
+    FAISS doesn't support removing individual vectors from IndexFlatL2).
     """
-    # Load existing index if present, otherwise start fresh
     if index_exists():
         index, chunks = load_index()
         already_indexed_paths = set(c.get("pdf_path") for c in chunks if "pdf_path" in c)
@@ -115,18 +115,25 @@ def sync_index(root_path):
 
     print(f"Scanning folder: {root_path}")
     pdf_index = scan_folders(root_path)
+    current_paths = set(pdf["path"] for pdf in pdf_index)
 
-    # Find PDFs that are NOT yet indexed
+    # Detect deletions — paths that were indexed but no longer exist on disk
+    deleted_paths = already_indexed_paths - current_paths
+
+    # Detect new PDFs
     new_pdfs = [pdf for pdf in pdf_index if pdf["path"] not in already_indexed_paths]
 
-    if not new_pdfs:
-        print("No new PDFs found. Index is already up to date.")
+    if not new_pdfs and not deleted_paths:
+        print("No changes detected. Index is up to date.")
         return index, chunks, 0
 
-    print(f"Found {len(new_pdfs)} new PDF(s) to index.")
+    # Remove chunks belonging to deleted PDFs
+    if deleted_paths:
+        print(f"Detected {len(deleted_paths)} deleted PDF(s). Removing from index...")
+        chunks = [c for c in chunks if c.get("pdf_path") not in deleted_paths]
 
+    # Process new PDFs (same as before)
     new_chunks = []
-
     for pdf in new_pdfs:
         print(f"Processing new PDF: {pdf['name']}...")
         try:
@@ -136,7 +143,6 @@ def sync_index(root_path):
                 pages = extract_pdf_pages(pdf["path"])
 
             pdf_chunks = create_chunks(pages)
-
             for chunk in pdf_chunks:
                 chunk["pdf_name"] = pdf["name"]
                 chunk["pdf_path"] = pdf["path"]
@@ -144,33 +150,38 @@ def sync_index(root_path):
 
             new_chunks.extend(pdf_chunks)
             print(f"  {len(pdf_chunks)} chunks created.")
-
         except Exception as e:
             print(f"  Error processing {pdf['name']}: {e}")
             continue
 
-    if not new_chunks:
-        print("No chunks generated from new PDFs.")
-        return index, chunks, 0
-
-    # Embed ONLY the new chunks
-    print("Creating embeddings for new chunks...")
-    texts = [c.get("text_content", c.get("text", "")) for c in new_chunks]
-    new_embeddings = embedder.encode(texts, show_progress_bar=True)
-    new_embeddings = np.array(new_embeddings).astype("float32")
-
-    if index is None:
-        # No existing index — create a fresh one
-        dimension = new_embeddings.shape[1]
-        index = faiss.IndexFlatL2(dimension)
-
-    # Add new vectors to the existing index (no rebuild needed!)
-    index.add(new_embeddings)
     chunks.extend(new_chunks)
 
-    print(f"Index updated. Total vectors now: {index.ntotal}")
+    # If anything was deleted, FAISS IndexFlatL2 can't remove vectors
+    # individually — so we must rebuild the index from the remaining chunks.
+    if deleted_paths:
+        print("Rebuilding FAISS index after deletion...")
+        texts = [c.get("text_content", c.get("text", "")) for c in chunks]
+        if texts:
+            embeddings = embedder.encode(texts, show_progress_bar=True)
+            embeddings = np.array(embeddings).astype("float32")
+            dimension = embeddings.shape[1]
+            index = faiss.IndexFlatL2(dimension)
+            index.add(embeddings)
+        else:
+            index = None
+    elif new_chunks:
+        # Only additions, no deletions — fast path, just add new embeddings
+        texts = [c.get("text_content", c.get("text", "")) for c in new_chunks]
+        new_embeddings = embedder.encode(texts, show_progress_bar=True)
+        new_embeddings = np.array(new_embeddings).astype("float32")
 
-    # Save updated index + chunks
+        if index is None:
+            dimension = new_embeddings.shape[1]
+            index = faiss.IndexFlatL2(dimension)
+
+        index.add(new_embeddings)
+
+    print(f"Index updated. Total vectors now: {index.ntotal if index else 0}")
     save_index(index, chunks)
 
     return index, chunks, len(new_pdfs)

@@ -103,6 +103,7 @@ defaults = {
     "processing": False,
     "folder_signature": None,
     "voice_query": None,
+    "retry_prompt": None,
 }
 for key, value in defaults.items():
     if key not in st.session_state:
@@ -112,9 +113,8 @@ for key, value in defaults.items():
 # ============================================================
 # Core: initialize + sync (used both at startup and as a safety net)
 # ============================================================
-@st.cache_resource
 def _first_time_index():
-    """Runs only ONCE per process — loads or builds the base index."""
+    """No caching here — always reads fresh from disk (fast anyway)."""
     if index_exists():
         index, chunks = load_index()
     else:
@@ -252,15 +252,27 @@ st.markdown("## PDF Q&A System")
 st.caption("Bharat Electronics Limited — Radar Department | Intelligent Document Search")
 st.divider()
 
-for message in st.session_state.messages:
+for i, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+
+        # Show retry button only for failed assistant answers
+        if message["role"] == "assistant" and "Answer not found" in message["content"]:
+            if st.button("🔄 Retry", key=f"retry_{i}"):
+                # Find the user question right before this failed answer
+                if i > 0 and st.session_state.messages[i - 1]["role"] == "user":
+                    st.session_state.retry_prompt = st.session_state.messages[i - 1]["content"]
+                    st.rerun()
 
 prompt = None
 
 if st.session_state.voice_query:
     prompt = st.session_state.voice_query
     st.session_state.voice_query = None
+
+if st.session_state.retry_prompt:
+    prompt = st.session_state.retry_prompt
+    st.session_state.retry_prompt = None
 
 status_placeholder = st.empty()
 
@@ -368,7 +380,7 @@ if prompt:
             st.markdown(answer)
 
             sources = list(set([
-                f"{c['pdf_name']} (Page {c['page_number']})"
+                f"{c['pdf_name']} — {c.get('folder', 'Unknown folder')} (Page {c['page_number']})"
                 for c in relevant_chunks
             ]))
             if sources:
