@@ -14,7 +14,8 @@ from voice_input import get_voice_query
 from chat_history import (
     init_db, create_new_chat, save_message,
     update_chat_title, load_all_chats,
-    load_chat_messages, delete_chat, group_chats_by_date
+    load_chat_messages, delete_chat, group_chats_by_date,
+    delete_messages_from_index  
 )
 
 # ============================================================
@@ -285,6 +286,7 @@ for i, message in enumerate(st.session_state.messages):
             with col_save:
                 if st.button("✅ Save & Resend", key=f"save_edit_{i}"):
                     st.session_state.messages = st.session_state.messages[:i]
+                    delete_messages_from_index(st.session_state.current_chat_id, len(st.session_state.messages))
                     st.session_state.retry_prompt = edited_text
                     st.session_state.editing_index = None
                     st.rerun()
@@ -297,7 +299,7 @@ for i, message in enumerate(st.session_state.messages):
             is_user = message["role"] == "user"
             is_failed = message["role"] == "assistant" and "Answer not found" in message["content"]
 
-            msg_col, menu_col = st.columns([20, 1],)
+            msg_col, menu_col = st.columns([20, 1])
 
             with msg_col:
                 st.markdown(message["content"])
@@ -314,12 +316,14 @@ for i, message in enumerate(st.session_state.messages):
                                 if i > 0 and st.session_state.messages[i - 1]["role"] == "user":
                                     st.session_state.retry_prompt = st.session_state.messages[i - 1]["content"]
                                     st.session_state.messages = st.session_state.messages[:i - 1]
+                                    delete_messages_from_index(st.session_state.current_chat_id, len(st.session_state.messages))  # ← add this
                                     st.rerun()
                             if st.button("Remove", key=f"remove_{i}", use_container_width=True):
                                 if i > 0 and st.session_state.messages[i - 1]["role"] == "user":
                                     st.session_state.messages = st.session_state.messages[:i - 1] + st.session_state.messages[i + 1:]
                                 else:
                                     st.session_state.messages = st.session_state.messages[:i] + st.session_state.messages[i + 1:]
+                                delete_messages_from_index(st.session_state.current_chat_id, len(st.session_state.messages))  
                                 st.rerun()
 
 prompt = None
