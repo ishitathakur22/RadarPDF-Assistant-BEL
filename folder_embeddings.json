@@ -1,9 +1,4 @@
 {
-  "./sample_pdfs\\scanned": {
-    "pdf_names": [
-      "PublicWaterMassMailing"
-    ]
-  },
   "./sample_pdfs\\programming": {
     "pdf_names": [
       " Free English Grammar",
@@ -16,6 +11,11 @@
       "Radar Systems",
       "TheoryOfComputation",
       "UP1 17.7. The Doppler Effect pg882 889"
+    ]
+  },
+  "./sample_pdfs\\scanned": {
+    "pdf_names": [
+      "PublicWaterMassMailing"
     ]
   }
 }
