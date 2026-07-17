@@ -1,0 +1,132 @@
+Achha, ab **Windows ke liye** poori guide chahiye — shuru se, RHEL wale jaise detailed. Chalo banते hain.
+
+## Windows Setup — Poori Guide (Shuru se)
+
+### Step 1 — Anaconda environment banao
+
+```powershell
+conda create -n pdf_qa python=3.11
+conda activate pdf_qa
+```
+
+---
+
+### Step 2 — Project folder mein jaओ
+
+```powershell
+cd /d E:\BEL\PDF_QA_System
+```
+
+(Ya jahан bhi tumhara project folder hai)
+
+---
+
+### Step 3 — Python packages install karo
+
+```powershell
+pip install -r requirements.txt
+```
+
+---
+
+### Step 4 — Embedding model download karo (ek baar, internet ke sath)
+
+```powershell
+python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+```
+
+Isse model `C:\Users\<username>\.cache\huggingface\hub\` mein cache ho jaएगа — uske baад offline chalेगа.
+
+---
+
+### Step 5 — Ollama install karo (agar nahi hai)
+
+Browser mein jaओ: `https://ollama.com/download`
+
+Windows installer download karके install karो. Ollama install hote hi **automatically background service** ban jaता hai (system tray mein icon dikhेга).
+
+Model download karo:
+
+```powershell
+ollama pull llama3.2
+```
+
+---
+
+### Step 6 — ROOT_PATH set karo (asli PDFs kahан hain)
+
+`streamlit_app.py` file kholो, yeh line dhundो:
+
+```python
+ROOT_PATH = "./sample_pdfs"
+```
+
+Isе apni asli PDFs wale folder se replace karो:
+
+```python
+ROOT_PATH = "E:/BEL/AllDocuments"
+```
+
+Purana index delete karके fresh start karo (agar test data se switch kar rahi ho):
+
+```powershell
+del saved_index\faiss_index.bin
+del saved_index\chunks.pkl
+```
+
+---
+
+### Step 7 — App test karo (manually, terminal se)
+
+```powershell
+conda activate pdf_qa
+cd /d E:\BEL\PDF_QA_System
+python -m streamlit run streamlit_app.py --server.fileWatcherType none
+```
+
+Browser mein `http://localhost:8501` khोलके test karो.
+
+---
+
+### Step 8 — Auto-start setup (VBScript — Windows ka "systemd" jaisा)
+
+**`Start_PDF_App.vbs`** file project folder mein banао (agar pehले se nahi hai):
+
+```vbs
+Set WshShell = CreateObject("WScript.Shell")
+WshShell.Run "cmd /c cd /d E:\BEL\PDF_QA_System && conda activate pdf_qa && python -m streamlit run streamlit_app.py --server.fileWatcherType none", 0, False
+WScript.Sleep 8000
+WshShell.Run "http://localhost:8501"
+```
+
+(Apna exact conda/python path use karो agar `conda activate` command terminal mein directly kaam na kare — us case mein pehле jaisा `E:\anaconda\envs\pdf_qa\python.exe` ka full path use karो)
+
+---
+
+### Step 9 — Auto-start on boot ke liye Startup folder mein shortcut daालो
+
+1. `Win + R` → `shell:startup` → Enter
+2. `Start_PDF_App.vbs` ka **shortcut banао** (right-click → Create shortcut)
+3. Us shortcut ko Startup folder mein copy-paste karो
+
+Ab jab bhi Windows start hoगा, app automatically background mein chalेगi (bina terminal dikhाए), aur 8 second baад khुद browser mein `localhost:8501` khуल jaएगa.
+
+---
+
+### Step 10 — Reboot test karo
+
+Laptop restart karो. Login hone ke baад, **~10-15 second wait karो**, phir browser mein `http://localhost:8501` type karो (agar VBS ने khुद nahi khोла ho toh manually type karo).
+
+---
+
+## Zaroori Note — Bade Folder (bahut saरी PDFs) ke liye
+
+Agar `ROOT_PATH` ko naye folder pe point kiya hai jisमें bahut saारी/badी PDFs hain, **pehli baar indexing mein bahut zyada time** lagेга (jaisा RHEL ke liye discuss kiya — kई ghante bhi ho sakते hain). Us case mein:
+
+1. App start karके **poori raात/kई ghante idle chhod dो**
+2. Koई question mat poochो jab tak indexing complete na ho (toast notification ka wait karो)
+3. Uske baад daily use fast rahega (sirf naye PDFs process honge)
+
+---
+
+Yeh poora sequence follow karके Windows pe bhi sab kuch RHEL jaisा hi automatically kaam karेгa. Koई specific step pe atak rahी ho toh batао.
