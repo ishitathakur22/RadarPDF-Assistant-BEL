@@ -130,3 +130,19 @@ def group_chats_by_date(chats):
             groups["Older"].append(chat)
 
     return groups
+
+
+def delete_messages_from_index(chat_id, keep_count):
+    """Delete all messages after a certain position (used by edit/retry/remove)."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.execute(
+        "SELECT id FROM messages WHERE chat_id=? ORDER BY timestamp",
+        (chat_id,)
+    )
+    all_ids = [row[0] for row in cursor.fetchall()]
+    ids_to_delete = all_ids[keep_count:]
+    if ids_to_delete:
+        placeholders = ",".join("?" * len(ids_to_delete))
+        conn.execute(f"DELETE FROM messages WHERE id IN ({placeholders})", ids_to_delete)
+        conn.commit()
+    conn.close()

@@ -5,43 +5,29 @@ echo ""
 # System packages
 echo "Installing system packages..."
 sudo apt update
-sudo apt install python3 python3-pip tesseract-ocr ffmpeg -y
-
-# Ollama
-echo "Installing Ollama..."
-curl -fsSL https://ollama.com/install.sh | sh
+sudo apt install python3.11 python3.11-venv python3.11-dev tesseract-ocr ffmpeg -y
 
 # Virtual environment
 echo "Creating virtual environment..."
-python3 -m venv pdf_qa
+python3.11 -m venv pdf_qa
 source pdf_qa/bin/activate
 
 # Python packages
 echo "Installing Python packages..."
 pip install -r requirements.txt
 
-# PyTorch + ColPali (GPU)
-echo "Installing PyTorch and ColPali..."
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-pip install byaldi colpali-engine
-
-# Ollama model
-echo "Downloading Llama 3.2 model..."
-ollama pull llama3.2
-
 echo ""
 echo "=== Installation Complete! ==="
 echo ""
+echo "Note: Ollama must be installed separately (see README for offline transfer instructions)."
+echo ""
 echo "To run the project:"
 echo "  source pdf_qa/bin/activate"
-echo "  ollama serve &"
-echo "  python3 main.py"
+echo "  python3.11 -m streamlit run streamlit_app.py --server.fileWatcherType none"
 
-# Download model for offline use
-python3 -c "
-import os
-os.environ['TRANSFORMERS_OFFLINE'] = '0'
+# Download embedding model for offline use (requires internet during this step only)
+python3.11 -c "
 from sentence_transformers import SentenceTransformer
 SentenceTransformer('all-MiniLM-L6-v2')
-print('Model downloaded!')
+print('Embedding model downloaded!')
 "

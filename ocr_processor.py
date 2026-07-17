@@ -4,11 +4,11 @@ import pytesseract
 from PIL import Image
 import io
 
-# Set tesseract path
-pytesseract.pytesseract.tesseract_cmd = (
-    r"E:\tesseract\tesseract.exe"
-)
+import platform
 
+if platform.system() == "Windows":
+    pytesseract.pytesseract.tesseract_cmd = r"E:\tesseract\tesseract.exe"
+# On Linux, tesseract is on PATH after `sudo dnf install tesseract` — no need to set cmd
 
 def is_scanned_pdf(pdf_path, text_threshold=50):
     """

@@ -223,4 +223,15 @@ __pycache__/
 *.pyc
 saved_index/
 
-.vscode/
+.vscode/        
+
+offline_packages/
+offline_packages_linux/
+offline_packages_windows_311/
+sample_pdfs/
+chat_history.db
+requirements_no_whisper.txt
+requirements_final.txt
+step/
+demo_notebook.ipynb
+pdf_qa/

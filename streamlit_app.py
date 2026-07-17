@@ -3,6 +3,7 @@ os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ["HF_DATASETS_OFFLINE"] = "1"
 
+import zipfile
 from file_indexer import get_folder_signature
 
 import streamlit as st
@@ -14,7 +15,8 @@ from voice_input import get_voice_query
 from chat_history import (
     init_db, create_new_chat, save_message,
     update_chat_title, load_all_chats,
-    load_chat_messages, delete_chat, group_chats_by_date
+    load_chat_messages, delete_chat, group_chats_by_date,
+    delete_messages_from_index  
 )
 
 # ============================================================
@@ -128,6 +130,8 @@ defaults = {
     "voice_query": None,
     "retry_prompt": None,
     "editing_index": None,
+    "uploader_key": 0,      # bumped to force a fresh file_uploader widget after each upload
+    "upload_result": None,  # persists the upload success/skip message across the rerun
 }
 for key, value in defaults.items():
     if key not in st.session_state:
@@ -184,6 +188,51 @@ def warm_up_ollama():
     except Exception as e:
         print(f"Ollama warm-up failed: {e}")
     return True
+
+
+@st.cache_data(ttl=5, show_spinner=False)
+def list_subfolders(root_path):
+    """
+    Return a sorted list of existing subfolder paths (relative to root_path).
+    Cached for 5s — this only needs to populate a selectbox, so no need
+    to re-walk the filesystem on every single rerun.
+    """
+    subfolders = []
+    for dirpath, dirnames, _ in os.walk(root_path):
+        for d in dirnames:
+            rel = os.path.relpath(os.path.join(dirpath, d), root_path)
+            subfolders.append(rel.replace(os.sep, "/"))
+    return sorted(subfolders)
+
+
+def extract_zip_to_folder(zip_bytes, dest_dir):
+    """
+    Safely extract a zip file's contents (preserving its internal folder
+    structure) into dest_dir. Skips any entry that would escape dest_dir
+    (zip-slip protection) and any non-PDF files.
+
+    Returns the number of PDF files extracted.
+    """
+    import io
+    extracted = 0
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        for member in zf.namelist():
+            if member.endswith("/"):
+                continue  # directory entry
+            if not member.lower().endswith(".pdf"):
+                continue  # skip non-PDF files silently
+
+            target_path = os.path.normpath(os.path.join(dest_dir, member))
+            if not target_path.startswith(os.path.normpath(dest_dir) + os.sep) and target_path != os.path.normpath(dest_dir):
+                continue  # zip-slip protection — skip suspicious paths
+
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            if os.path.exists(target_path):
+                continue  # don't overwrite existing files
+            with zf.open(member) as src, open(target_path, "wb") as out:
+                out.write(src.read())
+            extracted += 1
+    return extracted
 
 
 # ============================================================
@@ -256,6 +305,120 @@ with st.sidebar:
                         st.rerun()
 
     st.divider()
+    st.markdown("<div class='sidebar-header'>UPLOAD PDF</div>", unsafe_allow_html=True)
+    st.caption("Upload one or more PDFs, or a .zip of a whole folder.")
+
+    existing_folders = list_subfolders(ROOT_PATH)
+    folder_options = ["📁 Root (default)"] + [f"📁 {f}" for f in existing_folders] + ["➕ Create new folder..."]
+
+    folder_choice = st.selectbox(
+        "Destination folder",
+        folder_options,
+        key="upload_folder_choice",
+    )
+
+    target_subfolder = ""  # "" means ROOT_PATH itself
+
+    if folder_choice == "➕ Create new folder...":
+        new_folder_name = st.text_input(
+            "New folder name",
+            key="new_folder_name",
+            placeholder="e.g. Radar-Manuals",
+        )
+        target_subfolder = new_folder_name.strip()
+    elif folder_choice != "📁 Root (default)":
+        target_subfolder = folder_choice.replace("📁 ", "", 1)
+
+    # Custom styling for the file uploader's inner button text and the
+    # dropzone hint text. The widget's own label is collapsed and replaced
+    # by an explicit st.markdown line below, so styling reliably matches
+    # the "Destination folder" label above it.
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stFileUploader"] button [data-testid="stMarkdownContainer"] p,
+        div[data-testid="stFileUploader"] button span {
+            display: none !important;
+        }
+        div[data-testid="stFileUploader"] button::after {
+            content: "📁 Upload from Drive";
+            font-size: 14px;
+        }
+        div[data-testid="stFileUploaderDropzoneInstructions"] {
+            display: none !important;
+        }
+        div[data-testid="stFileUploaderDropzone"]::after {
+            content: "📥 Drag and drop files here";
+            display: block;
+            font-size: 13px;
+            color: #777777;
+            text-align: left;
+            margin-top: 12px;
+            padding-left: 4px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown("**Choose PDF(s) or a .zip of a folder**")
+
+    # Show the result of the PREVIOUS upload (if any) — stored in
+    # session_state because a message shown right before st.rerun()
+    # gets wiped out by the rerun before it's visible on screen.
+    if st.session_state.upload_result:
+        result = st.session_state.upload_result
+        if result["saved"] > 0:
+            st.sidebar.success(f"✅ Indexed {result['saved']} PDF(s) into destination!")
+        if result["skipped"]:
+            st.sidebar.warning("Skipped (already exist): " + ", ".join(result["skipped"]))
+        st.session_state.upload_result = None
+
+    uploaded_items = st.file_uploader(
+        "Choose PDF(s) or a .zip of a folder",
+        type=["pdf", "zip"],
+        accept_multiple_files=True,
+        key=f"pdf_uploader_{st.session_state.uploader_key}",
+        label_visibility="collapsed",
+    )
+
+    # Instant processing — as soon as files are selected, save + index them.
+    # No separate "Upload" button click needed.
+    if uploaded_items:
+        dest_dir = os.path.join(ROOT_PATH, target_subfolder) if target_subfolder else ROOT_PATH
+        os.makedirs(dest_dir, exist_ok=True)
+
+        saved_count = 0
+        skipped = []
+
+        for uf in uploaded_items:
+            if uf.name.lower().endswith(".zip"):
+                saved_count += extract_zip_to_folder(uf.getvalue(), dest_dir)
+            else:
+                dest_path = os.path.join(dest_dir, uf.name)
+                if os.path.exists(dest_path):
+                    skipped.append(uf.name)
+                    continue
+                with open(dest_path, "wb") as f:
+                    f.write(uf.getbuffer())
+                saved_count += 1
+
+        if saved_count > 0:
+            with st.spinner(f"Indexing {saved_count} new PDF(s)..."):
+                ensure_system_ready()
+
+        # Stash the result so it can be shown on the NEXT run, after the
+        # rerun below completes — this is what actually makes it visible.
+        st.session_state.upload_result = {"saved": saved_count, "skipped": skipped}
+
+        # Force a fresh uploader widget on the next run instead of trying
+        # to mutate this run's widget state directly (which Streamlit
+        # disallows once the widget has been instantiated).
+        st.session_state.uploader_key += 1
+        list_subfolders.clear()  # a new folder may have been created — refresh selectbox
+        st.rerun()
+
+    st.divider()
     st.markdown("<div class='sidebar-header'>DOCUMENTS</div>", unsafe_allow_html=True)
     st.caption("New PDFs are detected automatically. Rebuild only if needed.")
 
@@ -285,6 +448,7 @@ for i, message in enumerate(st.session_state.messages):
             with col_save:
                 if st.button("✅ Save & Resend", key=f"save_edit_{i}"):
                     st.session_state.messages = st.session_state.messages[:i]
+                    delete_messages_from_index(st.session_state.current_chat_id, len(st.session_state.messages))
                     st.session_state.retry_prompt = edited_text
                     st.session_state.editing_index = None
                     st.rerun()
@@ -297,7 +461,7 @@ for i, message in enumerate(st.session_state.messages):
             is_user = message["role"] == "user"
             is_failed = message["role"] == "assistant" and "Answer not found" in message["content"]
 
-            msg_col, menu_col = st.columns([20, 1],)
+            msg_col, menu_col = st.columns([20, 1])
 
             with msg_col:
                 st.markdown(message["content"])
@@ -314,12 +478,14 @@ for i, message in enumerate(st.session_state.messages):
                                 if i > 0 and st.session_state.messages[i - 1]["role"] == "user":
                                     st.session_state.retry_prompt = st.session_state.messages[i - 1]["content"]
                                     st.session_state.messages = st.session_state.messages[:i - 1]
+                                    delete_messages_from_index(st.session_state.current_chat_id, len(st.session_state.messages))  # ← add this
                                     st.rerun()
                             if st.button("Remove", key=f"remove_{i}", use_container_width=True):
                                 if i > 0 and st.session_state.messages[i - 1]["role"] == "user":
                                     st.session_state.messages = st.session_state.messages[:i - 1] + st.session_state.messages[i + 1:]
                                 else:
                                     st.session_state.messages = st.session_state.messages[:i] + st.session_state.messages[i + 1:]
+                                delete_messages_from_index(st.session_state.current_chat_id, len(st.session_state.messages))  
                                 st.rerun()
 
 prompt = None
