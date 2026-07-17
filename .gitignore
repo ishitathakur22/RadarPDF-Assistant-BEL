@@ -236,3 +236,5 @@ step/
 demo_notebook.ipynb
 pdf_qa/
 step/
+
+*.lnk
